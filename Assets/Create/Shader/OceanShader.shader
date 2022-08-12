@@ -48,28 +48,58 @@ Shader "MyShader/OceanShader"
         float _Shininess;
         CBUFFER_END
         
-         float SineWave(float4 waveParam, float speed, float x)
+        float SineWave(float4 waveParam, float speed, float x, float z, inout float3 tangent, inout float3 bitangent)
         {
-            float amplitude = waveParam.x;
-            float waveLength = waveParam.y;
+            float amplitude = waveParam.z;
+            float waveLength = waveParam.w;
+            
             float k = 2 * PI / max(1, waveLength);
-            float waveOffset = amplitude * sin(k * (x - speed));
+            float fx = k * (x - speed);
+            float fz = k * (z - speed + 0.5);
+            float waveOffset = amplitude * sin(fx) + amplitude * sin(fz);
+
+            tangent = normalize(float3(1, amplitude * k * cos(fx),0));
+            bitangent = normalize(float3(0, amplitude * k * cos(fz),1));
+            
             return waveOffset;
         }
         
         v2f vert(appdata i)
         {
             v2f o = (v2f)0;
-            i.positionOS.y += SineWave(_WaveParam, _Time.y * _Speed, i.positionOS.x);
-            i.positionOS.y += SineWave(_WaveParam, _Time.y * _Speed + 0.5, i.positionOS.z);
+             float3 bitangent = 0;
+            float3 tangent = 0;
+            
+            i.positionOS.y += SineWave(_WaveParam, _Time.y * _Speed, i.positionOS.x,  i.positionOS.z, tangent, bitangent);
+            i.tangentOS.xyz = tangent;
+            i.normalOS = normalize(cross(bitangent, tangent));
+            
             o.positionCS = TransformObjectToHClip(i.positionOS.xyz);
+            o.positionWS = TransformObjectToWorld(i.positionOS.xyz);
+            o.normalWS = TransformObjectToWorldNormal(i.normalOS.xyz);
             
             return o;
         }
         
         half4 frag(v2f i) : SV_TARGET
         {
-           return half4(1,1,1,1);
+            half3 normalWS = normalize(i.normalWS);
+            float3 positionWS = normalize(i.positionWS);
+            half3 viewDir = normalize(GetWorldSpaceViewDir(positionWS));
+            
+            Light mainLight = GetMainLight();
+            half3 halfVec = normalize(viewDir + mainLight.direction);
+            
+            half NdotL = dot(normalWS, mainLight.direction);
+            half NdotH = dot(normalWS, halfVec);
+            half halfLambert = NdotL * 0.5 + 0.5;
+            
+            half3 diffuse = halfLambert * _BaseColor.rgb;
+
+            half3 specular = _SpecIntensity * pow(saturate(NdotH), -_Shininess) * mainLight.color;
+
+            half3 finalColor = specular + diffuse;
+            return half4(finalColor,1);
         }
         
         ENDHLSL
