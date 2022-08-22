@@ -1,11 +1,18 @@
-Shader "MyShader/OceanShader_03"
+Shader "MyShader/OceanShader_Depth"
 {
     Properties 
     {
-        _ShallowColour("Shallow Color",Color) = (1,1,1,1)
-        _DeepColour("Deep Color",Color) = (1,1,1,1)
+        // Color
+        _ShallowColor("Shallow Color",Color) = (1,1,1,1)
+        _DeepColor("Deep Color",Color) = (1,1,1,1)
+        // Deep 
+        _DeepScale("Deep Scale",float) = 1
+        _DeepCurve("Deep Curve",float) = 1
+        _DeepPower("Deep Power", Float) = 1
+        // Wave
         _WaveParam("WaveParam", Vector) = (0,0,0,0) //xy(direction),zw(amplitude, wave length)
         _Speed("Speed", Float) = 1
+        // Shading
         _SpecIntensity("Spec Intensity", Float) = 1
         _Shininess("Shininess", Float) = 10
     }
@@ -14,6 +21,7 @@ Shader "MyShader/OceanShader_03"
         Tags
         {
             "RenderType"="Transparent"
+            "Queue"="Transparent"
         }
         LOD 100
 
@@ -37,15 +45,21 @@ Shader "MyShader/OceanShader_03"
             float3 normalWS : TEXCOORD1;
             float4 positionCS : SV_POSITION;
             float3 positionWS : TEXCOORD2;
-            //float4 vertexCS: TEXCOORD3;
+            float4 vertexCS: TEXCOORD3;
             //float4 tangentWS: TEXCOORD5;
         };
 
         CBUFFER_START(UnityPerMaterial)
-        half4 _ShallowColour;
-        half4 _DeepColour;
+        half4 _ShallowColor;
+        half4 _DeepColor;
+
+        float _DeepScale;
+        float _DeepCurve;
+        float _DeepPower;
+
         float4 _WaveParam;
         float _Speed;
+
         float _SpecIntensity;
         float _Shininess;
         CBUFFER_END
@@ -72,11 +86,13 @@ Shader "MyShader/OceanShader_03"
             float3 bitangent = 0;
             float3 tangent = 0;
             
+            
             i.positionOS.y += SineWave(_WaveParam, _Time.y * _Speed, i.positionOS.x,  i.positionOS.z, tangent, bitangent);
             i.tangentOS.xyz = tangent;
             i.normalOS = normalize(cross(bitangent, tangent));
             
             o.positionCS = TransformObjectToHClip(i.positionOS.xyz);
+            o.vertexCS = o.positionCS;
             o.positionWS = TransformObjectToWorld(i.positionOS.xyz);
             o.normalWS = TransformObjectToWorldNormal(i.normalOS.xyz);
             
@@ -88,32 +104,42 @@ Shader "MyShader/OceanShader_03"
             half3 normalWS = normalize(i.normalWS);
             float3 positionWS = normalize(i.positionWS);
             half3 viewDir = normalize(GetWorldSpaceViewDir(positionWS));
-            
-            Light mainLight = GetMainLight();
-            half3 halfVec = normalize(viewDir + mainLight.direction);
-            
-            half NdotL = dot(normalWS, mainLight.direction);
-            half NdotH = dot(normalWS, halfVec);
-            half halfLambert = NdotL * 0.5 + 0.5;
-            
-            half3 diffuse = halfLambert * _ShallowColour.rgb;
+            // ------------calculate depth---------------
+            float4 screenPos = ComputeScreenPos(i.vertexCS);
+            float2 screenUV = screenPos.xy/i.vertexCS.w;
+            //return half4(screenUV.xy, 0, 1.0);
+            float3 objectPositionWS = ComputeWorldSpacePosition( screenUV, SampleSceneDepth(screenUV), UNITY_MATRIX_I_VP);
+            float waterDeep = abs(positionWS.y - objectPositionWS.y)/max(_DeepScale, 1);
+            waterDeep = pow(waterDeep, _DeepPower);
+            float deepFactor = 1 - exp2(-_DeepCurve * waterDeep);
 
-            half3 specular = _SpecIntensity * pow(saturate(NdotH), _Shininess) * mainLight.color;
+            //deepFactor = clamp(waterDeep,0,1);
+           
+            half3 baseColor = _ShallowColor.rgb;
+            float alpha = 1.0;
 
-            half3 finalColor = specular + diffuse;
-            return half4(finalColor,1);
+            baseColor.rgb = lerp(_ShallowColor.rgb, _DeepColor.rgb, deepFactor);
+            alpha = saturate(lerp(_ShallowColor.a, _DeepColor.a, deepFactor));
+
+        
+            // Light mainLight = GetMainLight();
+            // half3 halfVec = normalize(viewDir + mainLight.direction);
+            
+            // half NdotL = dot(normalWS, mainLight.direction);
+            // half NdotH = dot(normalWS, halfVec);
+            // half halfLambert = NdotL * 0.5 + 0.5;
+            
+            // half3 diffuse = halfLambert * _ShallowColor.rgb;
+
+            // half3 specular = _SpecIntensity * pow(saturate(NdotH), _Shininess) * mainLight.color;
+
+            // half3 finalColor = specular + diffuse;
+            return half4(baseColor,alpha);
         }
         
         ENDHLSL
         Pass
-        {
-
-            Tags 
-            {
-                "LightMode" = "SRPDefaultUnlit"
-                "Queue" = "Transparent"
-            }
-            
+        { 
             Cull[_Cull]
             BlendOp Add
             Blend SrcAlpha OneMinusSrcAlpha 

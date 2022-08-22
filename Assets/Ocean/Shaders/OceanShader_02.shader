@@ -1,4 +1,4 @@
-Shader "MyShader/OceanShader_02"
+Shader "MyShader/OceanShader_Preset"
 {
     Properties 
     {
