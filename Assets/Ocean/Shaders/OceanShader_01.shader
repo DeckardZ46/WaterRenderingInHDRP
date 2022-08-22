@@ -3,11 +3,12 @@ Shader "MyShader/OceanShader_01"
     Properties 
     {
         // Color
-        _ShallowColour("Shallow Color",Color) = (1,1,1,1)
-        _DeepColour("Deep Color",Color) = (1,1,1,1)
+        _ShallowColor("Shallow Color",Color) = (1,1,1,1)
+        _DeepColor("Deep Color",Color) = (1,1,1,1)
         // Deep 
-        _DeepScale("Deep Scale",float) = 1.0;
-        _DeepCurve("Deep Curve",float) = 1.0;
+        _DeepScale("Deep Scale",float) = 1
+        _DeepCurve("Deep Curve",float) = 1
+        _DeepPower("Deep Power", Float) = 1
         // Wave
         _WaveParam("WaveParam", Vector) = (0,0,0,0) //xy(direction),zw(amplitude, wave length)
         _Speed("Speed", Float) = 1
@@ -49,10 +50,16 @@ Shader "MyShader/OceanShader_01"
         };
 
         CBUFFER_START(UnityPerMaterial)
-        half4 _ShallowColour;
-        half4 _DeepColour;
+        half4 _ShallowColor;
+        half4 _DeepColor;
+
+        float _DeepScale;
+        float _DeepCurve;
+        float _DeepPower;
+
         float4 _WaveParam;
         float _Speed;
+
         float _SpecIntensity;
         float _Shininess;
         CBUFFER_END
@@ -85,6 +92,7 @@ Shader "MyShader/OceanShader_01"
             i.normalOS = normalize(cross(bitangent, tangent));
             
             o.positionCS = TransformObjectToHClip(i.positionOS.xyz);
+            o.vertexCS = o.positionCS;
             o.positionWS = TransformObjectToWorld(i.positionOS.xyz);
             o.normalWS = TransformObjectToWorldNormal(i.normalOS.xyz);
             
@@ -96,27 +104,37 @@ Shader "MyShader/OceanShader_01"
             half3 normalWS = normalize(i.normalWS);
             float3 positionWS = normalize(i.positionWS);
             half3 viewDir = normalize(GetWorldSpaceViewDir(positionWS));
-            // calculate depth
+            // ------------calculate depth---------------
             float4 screenPos = ComputeScreenPos(i.vertexCS);
             float2 screenUV = screenPos.xy/i.vertexCS.w;
+            //return half4(screenUV.xy, 0, 1.0);
             float3 objectPositionWS = ComputeWorldSpacePosition( screenUV, SampleSceneDepth(screenUV), UNITY_MATRIX_I_VP);
-            float waterDeep =  abs(positionWS.y - objectPositionWS.y) / max(_DeepScale, 1);
-            float deepFactor = exp2(-_DeepCurve * waterDeep);
-            //return half4(deepFactor.xxx, 1.0);
+            float waterDeep = abs(positionWS.y - objectPositionWS.y)/max(_DeepScale, 1);
+            waterDeep = pow(waterDeep, _DeepPower);
+            float deepFactor = 1 - exp2(-_DeepCurve * waterDeep);
 
-            Light mainLight = GetMainLight();
-            half3 halfVec = normalize(viewDir + mainLight.direction);
+            //deepFactor = clamp(waterDeep,0,1);
+           
+            half3 baseColor = _ShallowColor.rgb;
+            float alpha = 1.0;
+
+            baseColor.rgb = lerp(_ShallowColor.rgb, _DeepColor.rgb, deepFactor);
+            alpha = saturate(lerp(_ShallowColor.a, _DeepColor.a, deepFactor));
+
+        
+            // Light mainLight = GetMainLight();
+            // half3 halfVec = normalize(viewDir + mainLight.direction);
             
-            half NdotL = dot(normalWS, mainLight.direction);
-            half NdotH = dot(normalWS, halfVec);
-            half halfLambert = NdotL * 0.5 + 0.5;
+            // half NdotL = dot(normalWS, mainLight.direction);
+            // half NdotH = dot(normalWS, halfVec);
+            // half halfLambert = NdotL * 0.5 + 0.5;
             
-            half3 diffuse = halfLambert * _ShallowColour.rgb;
+            // half3 diffuse = halfLambert * _ShallowColor.rgb;
 
-            half3 specular = _SpecIntensity * pow(saturate(NdotH), _Shininess) * mainLight.color;
+            // half3 specular = _SpecIntensity * pow(saturate(NdotH), _Shininess) * mainLight.color;
 
-            half3 finalColor = specular + diffuse;
-            return half4(finalColor,0.5);
+            // half3 finalColor = specular + diffuse;
+            return half4(baseColor,alpha);
         }
         
         ENDHLSL
