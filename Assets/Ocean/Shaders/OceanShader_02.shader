@@ -2,6 +2,7 @@ Shader "MyShader/OceanShader_Preset"
 {
     Properties 
     {
+        
         _ShallowColor("Shallow Color",Color) = (1,1,1,1)
         _DeepColor("Deep Color", Color) = (1,1,1,1)
         _SpecColor("Spec Color", Color) = (1,1,1,1)

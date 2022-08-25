@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: OceanMat Depth
-  m_Shader: {fileID: 4800000, guid: 026f4ec19cb126f4b819cf78056cb749, type: 3}
+  m_Shader: {fileID: 4800000, guid: 511a009fa27bf49499dbd7ace8a640fc, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
