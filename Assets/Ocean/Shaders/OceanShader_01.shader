@@ -19,7 +19,8 @@ Shader "MyShader/OceanShader_01"
         [Header(Foam)]
         _NoiseTex("Noise Texture",2D) = "black"{}
         _FoamColor("Foam Color", Color) = (1,1,1,1)
-        _FoamBias("Foam Bias", Range(0,0.1)) = 0
+        _FoamBias("Foam Bias", Range(0,0.5)) = 0
+        _FoamIntensity("Foam Intensity",Range(0,0.5)) = 0.2
         // Deep 
         [Header(Depth)]
         _DeepScale("Deep Scale",Range(0,10)) = 1
@@ -77,6 +78,7 @@ Shader "MyShader/OceanShader_01"
         half4 _NoiseTex_ST;
         half4 _FoamColor;
         float _FoamBias;
+        float _FoamIntensity;
 
         // Deep 
         float _DeepScale;
@@ -203,7 +205,10 @@ Shader "MyShader/OceanShader_01"
             
             // ------------------------edge foam------------------------------
             float2 noiseUV = i.uv*_NoiseTex_ST.xy;
-            float foamNoise = SAMPLE_TEXTURE2D(_NoiseTex, sampler_NoiseTex, noiseUV+_Time.y/150);
+            float3 flowNoiseUV0 = FlowUV(noiseUV,flowMap.xy,flowTime);
+            float3 flowNoiseUV1 = FlowUV(noiseUV,flowMap.xy,flowTime,0.5);
+            float foamNoise = SAMPLE_TEXTURE2D(_NoiseTex, sampler_NoiseTex, flowNoiseUV0.xy+_Time.y/50)*flowNoiseUV0.z+
+            SAMPLE_TEXTURE2D(_NoiseTex, sampler_NoiseTex, flowNoiseUV1.xy+_Time.y/50)*flowNoiseUV1.z;
 
             // ------------------------lighting------------------------------
             Light mainLight = GetMainLight();
@@ -216,7 +221,7 @@ Shader "MyShader/OceanShader_01"
             half3 diffuse = halfLambert * baseColor.rgb;
             half3 specular = (_SpecIntensity/100) * pow(saturate(NdotH), -_Shininess) * mainLight.color;
 
-            half3 finalColor = specular + diffuse +_FoamColor.rgb * step(deepFactor, _FoamBias*0.001)* step(0.4,foamNoise);
+            half3 finalColor = specular + diffuse +_FoamColor.rgb * step(deepFactor, _FoamBias/3000)* step(_FoamIntensity,foamNoise);
             return half4(finalColor,alpha);
         }
         
