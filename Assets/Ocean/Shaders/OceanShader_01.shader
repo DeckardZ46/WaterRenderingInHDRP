@@ -15,6 +15,11 @@ Shader "MyShader/OceanShader_01"
         _FlowMap("Flow Map", 2D) = "black" {}
         _FlowStrength("Flow Strength", Range(-5,5)) = 1
         _FlowSpeed("Flow Speed",Range(0,1)) = 1
+        // Foam
+        [Header(Foam)]
+        _NoiseTex("Noise Texture",2D) = "black"{}
+        _FoamColor("Foam Color", Color) = (1,1,1,1)
+        _FoamBias("Foam Bias", Range(0,0.1)) = 0
         // Deep 
         [Header(Depth)]
         _DeepScale("Deep Scale",Range(0,10)) = 1
@@ -50,6 +55,8 @@ Shader "MyShader/OceanShader_01"
         SAMPLER(sampler_BumpMap);
         TEXTURE2D(_FlowMap);               
         SAMPLER(sampler_FlowMap);
+        TEXTURE2D(_NoiseTex);               
+        SAMPLER(sampler_NoiseTex);
 
         CBUFFER_START(UnityPerMaterial)
         // Color
@@ -65,6 +72,11 @@ Shader "MyShader/OceanShader_01"
         half4 _FlowMap_ST;
         float _FlowStrength;
         float _FlowSpeed;
+
+        // Foam
+        half4 _NoiseTex_ST;
+        half4 _FoamColor;
+        float _FoamBias;
 
         // Deep 
         float _DeepScale;
@@ -123,11 +135,14 @@ Shader "MyShader/OceanShader_01"
             
             // Vertical Movement
             i.positionOS.y += SineWave(_WaveParam, _Time.y * _Speed, i.positionOS.x,  i.positionOS.z, tangent, bitangent);
+            
+            // origin normal
+            o.normalWSOrigin = TransformObjectToWorldNormal(i.normalOS.xyz);
 
             // Normal
             i.tangentOS.xyz = normalize(tangent);
             i.normalOS = normalize(cross(bitangent, tangent));
-            
+            o.normalWSOrigin = TransformObjectToWorldNormal(i.normalOS.xyz);
             o.positionCS = TransformObjectToHClip(i.positionOS.xyz);
             o.vertexCS = o.positionCS;
             o.positionWS = TransformObjectToWorld(i.positionOS.xyz);
@@ -168,7 +183,7 @@ Shader "MyShader/OceanShader_01"
 
             // ------------------------flow map------------------------------
             float2 bumpUV = i.uv.xy * _BumpMap_ST.xy;
-            float2 flowUV = i.uv.xy;
+            float2 flowUV = i.uv.xy * _FlowMap_ST.xy + _FlowMap_ST.zw;
             half4 flowMap = SAMPLE_TEXTURE2D(_FlowMap, sampler_FlowMap, flowUV) * 2 - 1;
             flowMap.xy *= _FlowStrength;
             float flowTime = _Time.y * _FlowSpeed + flowMap.a;
@@ -184,6 +199,12 @@ Shader "MyShader/OceanShader_01"
             normalWS = lerp(normalWS, normalize(TransformTangentToWorld(normalTS, tbn)), _BumpWeight);
             normalWS = SafeNormalize(normalWS);
 
+            // ------------------------reflection------------------------------
+            
+            // ------------------------edge foam------------------------------
+            float2 noiseUV = i.uv*_NoiseTex_ST.xy;
+            float foamNoise = SAMPLE_TEXTURE2D(_NoiseTex, sampler_NoiseTex, noiseUV+_Time.y/150);
+
             // ------------------------lighting------------------------------
             Light mainLight = GetMainLight();
             half3 halfVec = normalize(viewDir + mainLight.direction);
@@ -195,7 +216,7 @@ Shader "MyShader/OceanShader_01"
             half3 diffuse = halfLambert * baseColor.rgb;
             half3 specular = (_SpecIntensity/100) * pow(saturate(NdotH), -_Shininess) * mainLight.color;
 
-            half3 finalColor = specular + diffuse;
+            half3 finalColor = specular + diffuse +_FoamColor.rgb * step(deepFactor, _FoamBias*0.001)* step(0.4,foamNoise);
             return half4(finalColor,alpha);
         }
         
