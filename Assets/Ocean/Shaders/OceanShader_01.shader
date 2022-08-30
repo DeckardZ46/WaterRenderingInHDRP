@@ -59,6 +59,8 @@ Shader "MyShader/OceanShader_01"
         SAMPLER(sampler_FlowMap);
         TEXTURE2D(_NoiseTex);               
         SAMPLER(sampler_NoiseTex);
+        TEXTURE2D(_CameraOpaqueTexture);   
+        SAMPLER(sampler_CameraOpaqueTexture);
 
         CBUFFER_START(UnityPerMaterial)
         // Color
@@ -204,7 +206,17 @@ Shader "MyShader/OceanShader_01"
             normalWS = SafeNormalize(normalWS);
 
             // ------------------------reflection------------------------------
+            float2 reflectionUV = screenUV.xy;
+            objectPositionWS = ComputeWorldSpacePosition(reflectionUV, SampleSceneDepth(reflectionUV), UNITY_MATRIX_I_VP);
+            float3 objectPositionAbove = float3(positionWS.x, 2 * positionWS.y - objectPositionWS.y, positionWS.z);
+            float4 screenPosReflect = ComputeScreenPos(TransformWorldToHClip(objectPositionAbove));
+            float2 reflectUV = screenPosReflect.xy / screenPosReflect.w;
             
+            half3 reflectionColor = SAMPLE_TEXTURE2D(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, reflectUV);
+
+            // ------------------------refraction------------------------------
+
+
             // ------------------------edge foam------------------------------
             float2 noiseUV = i.uv*_NoiseTex_ST.xy;
             float3 flowNoiseUV0 = FlowUV(noiseUV,flowMap.xy,flowTime);
@@ -224,6 +236,7 @@ Shader "MyShader/OceanShader_01"
             half3 specular = (_SpecIntensity/100) * pow(saturate(NdotH), -_Shininess) * mainLight.color;
 
             half3 finalColor = specular + diffuse +_FoamColor.rgb * step(deepFactor, _FoamBias/3000)* step(_FoamDensity,foamNoise)*_FoamIntensity;
+            finalColor += reflectionColor/4;
             return half4(finalColor,alpha);
         }
         
