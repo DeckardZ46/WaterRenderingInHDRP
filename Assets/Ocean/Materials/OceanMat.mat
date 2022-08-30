@@ -67,7 +67,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _FlowMap:
         m_Texture: {fileID: 2800000, guid: 044dcf2d4a6522c4583422ba0c148d1b, type: 3}
-        m_Scale: {x: 18, y: 19}
+        m_Scale: {x: 30, y: 20}
         m_Offset: {x: 0, y: 0}
     - _FoamNoiseTex:
         m_Texture: {fileID: 0}
@@ -83,7 +83,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _NoiseTex:
         m_Texture: {fileID: 2800000, guid: 00875c056ba05454bbb9d3fdbc134093, type: 3}
-        m_Scale: {x: 1, y: 1}
+        m_Scale: {x: 100, y: 100}
         m_Offset: {x: 0, y: 0}
     - _NormalMap:
         m_Texture: {fileID: 0}
@@ -130,22 +130,25 @@ Material:
     - _ClearCoatSmoothness: 0
     - _Cull: 0
     - _Cutoff: 0.5
-    - _DeepCurve: 6.3
-    - _DeepPower: 2.1
-    - _DeepScale: 1.24
+    - _DeepCurve: 38.7
+    - _DeepPower: 5.4
+    - _DeepScale: 2.74
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 10
     - _EnvironmentReflections: 1
     - _FlowSpeed: 0.221
     - _FlowStrength: -0.52
-    - _FoamBias: 0.0157
-    - _FoamIntensity: 0.5
+    - _FoamBias: 0.019
+    - _FoamCurve: 0.0001
+    - _FoamDensity: 0.162
+    - _FoamIntensity: 0.834
     - _FogDensity: 0.1
     - _FrenelIntensity: 0.05
     - _FrenelPower: -2.56
     - _FrenelThreshold: 0.34
     - _Frequency: 2
+    - _FresnelIntensity: 1
     - _FresnelPower: 5
     - _FrontSSSIntensity: 0.2
     - _FrontSubsurfaceDistortion: 0.5
@@ -161,16 +164,16 @@ Material:
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _ReflectIntensity: 0.44
-    - _Refraction: 0.266
+    - _Refraction: 0.251
     - _RefractionStrength: 0.1
-    - _Shininess: 1.21
+    - _Shininess: 0.35
     - _Smoothness: 0.5
     - _SmoothnessSource: 0
     - _SmoothnessTextureChannel: 0
-    - _SpecIntensity: 2.05
+    - _SpecIntensity: 0.87
     - _SpecSource: 0
     - _SpecularHighlights: 1
-    - _Speed: 0.95
+    - _Speed: 0.34
     - _SrcBlend: 5
     - _Surface: 1
     - _TESSELLATION_EDGE: 0
@@ -204,8 +207,11 @@ Material:
     - _WaveJ: {r: 1, g: 1, b: 0.15, a: 10}
     - _WaveK: {r: 1, g: 1, b: 0.15, a: 10}
     - _WaveL: {r: 1, g: 1, b: 0.15, a: 10}
-    - _WaveParam: {r: 1.09, g: 1.89, b: 0.2, a: 8.98}
-    - _WaveParamA: {r: 4.53, g: 3.47, b: 0.05, a: 0.02}
-    - _WaveParamB: {r: 0.22, g: 2.33, b: 0.11, a: 0.02}
-    - _WaveParamC: {r: 0, g: 0.2, b: -0.01, a: 0.5}
+    - _WaveParam: {r: 0.99, g: 1.89, b: 2.28, a: 9.06}
+    - _WaveParamA: {r: 2.42, g: -3.51, b: 0.7, a: 44.4}
+    - _WaveParamB: {r: -0.13, g: 6.98, b: 1.08, a: 15.78}
+    - _WaveParamC: {r: 13.79, g: 8.08, b: 0.79, a: 29.7}
+    - _WaveParamD: {r: 14.58, g: -12.13, b: 0.31, a: 29.77}
+    - _WaveParamE: {r: 4.77, g: 0.78, b: 0.4, a: 16.36}
+    - _WaveParamF: {r: 8.31, g: -0.26, b: 0.66, a: 17.91}
   m_BuildTextureStacks: []
