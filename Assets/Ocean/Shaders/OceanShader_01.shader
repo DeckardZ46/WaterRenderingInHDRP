@@ -27,9 +27,20 @@ Shader "MyShader/OceanShader_01"
         _DeepScale("Deep Scale",Range(0,10)) = 1
         _DeepCurve("Deep Curve",Range(0,50)) = 1
         _DeepPower("Deep Power", Range(0,30)) = 1
+        // Refraction
+        [Header(Refraction)]
+        _Refraction("Refraction", Range(0, 1)) = 0
+        _FresnelIntensity("Fresnel Intensity", Float) = 1
+        _FresnelPower("Fresnel Power", Float) = 1
         // Wave
         [Header(Wave)]
         _WaveParam("WaveParam", Vector) = (0,0,0,0) // xy(direction),z(amplitude),w(wave length)
+        _WaveParamA("xy(direction),zw(amplitude, wave length)", Vector) = (0,0,0,0)
+        _WaveParamB("xy(direction),zw(amplitude, wave length)", Vector) = (0,0,0,0)
+        _WaveParamC("xy(direction),zw(amplitude, wave length)", Vector) = (0,0,0,0)
+        _WaveParamD("xy(direction),zw(amplitude, wave length)", Vector) = (0,0,0,0)
+        _WaveParamE("xy(direction),zw(amplitude, wave length)", Vector) = (0,0,0,0)
+        _WaveParamF("xy(direction),zw(amplitude, wave length)", Vector) = (0,0,0,0)
         _Speed("Speed", Float) = 1
         // Shading
         [Header(Shading)]
@@ -88,9 +99,20 @@ Shader "MyShader/OceanShader_01"
         float _DeepScale;
         float _DeepCurve;
         float _DeepPower;
+        
+        // Refraction
+        float _Refraction;
+        float _FresnelIntensity;
+        float _FresnelPower;
 
         // Wave
         float4 _WaveParam;
+        float4 _WaveParamA;
+        float4 _WaveParamB;
+        float4 _WaveParamC;
+        float4 _WaveParamD;
+        float4 _WaveParamE;
+        float4 _WaveParamF;
         float _Speed;
 
         // Shading
@@ -140,8 +162,16 @@ Shader "MyShader/OceanShader_01"
             float3 tangent = float3(1, 0, 0);
             
             // Vertical Movement
-            i.positionOS.y += SineWave(_WaveParam, _Time.y * _Speed, i.positionOS.x,  i.positionOS.z, tangent, bitangent);
-            
+            // i.positionOS.y += SineWave(_WaveParam, _Time.y * _Speed, i.positionOS.x,  i.positionOS.z, tangent, bitangent);
+            float3 wavePos = GerstnerWave(_WaveParamA, _Time.y * _Speed*2, i.positionOS.xyz, tangent, bitangent);
+            wavePos += GerstnerWave(_WaveParamB, _Time.y * _Speed, i.positionOS.xyz, tangent, bitangent);
+            wavePos += GerstnerWave(_WaveParamC, _Time.y * _Speed/3, i.positionOS.xyz, tangent, bitangent);
+            wavePos += GerstnerWave(_WaveParamD, _Time.y * _Speed/2, i.positionOS.xyz, tangent, bitangent);
+            wavePos += GerstnerWave(_WaveParamE, _Time.y * _Speed/5, i.positionOS.xyz, tangent, bitangent);
+            wavePos += GerstnerWave(_WaveParamF, _Time.y * _Speed/10, i.positionOS.xyz, tangent, bitangent);
+            i.positionOS.y = wavePos.y;
+            i.positionOS.x += wavePos.x;
+            i.positionOS.z += wavePos.z;
             // origin normal
             o.normalWSOrigin = TransformObjectToWorldNormal(i.normalOS.xyz);
 
@@ -175,18 +205,6 @@ Shader "MyShader/OceanShader_01"
             half3 baseColor = _ShallowColor.rgb;
             float alpha = _ShallowColor.a;
         
-            // ------------------------calculate depth------------------------------
-            float4 screenPos = ComputeScreenPos(i.vertexCS);
-            float2 screenUV = screenPos.xy/i.vertexCS.w;
-            
-            float3 objectPositionWS = ComputeWorldSpacePosition( screenUV, SampleSceneDepth(screenUV), UNITY_MATRIX_I_VP);
-            float waterDeep = abs(positionWS.y - objectPositionWS.y)/max(_DeepScale, 1);
-            waterDeep = pow(waterDeep, _DeepPower);
-            float deepFactor = 1 - exp2(-_DeepCurve * waterDeep);
-           
-            baseColor.rgb = lerp(_ShallowColor.rgb, _DeepColor.rgb, deepFactor);
-            alpha = saturate(lerp(_ShallowColor.a, _DeepColor.a, deepFactor));
-
             // ------------------------flow map------------------------------
             float2 bumpUV = i.uv.xy * _BumpMap_ST.xy;
             float2 flowUV = i.uv.xy * _FlowMap_ST.xy + _FlowMap_ST.zw;
@@ -204,9 +222,33 @@ Shader "MyShader/OceanShader_01"
             
             normalWS = lerp(normalWS, normalize(TransformTangentToWorld(normalTS, tbn)), _BumpWeight);
             normalWS = SafeNormalize(normalWS);
+            
+            // ------------------------calculate depth------------------------------
+            float4 screenPos = ComputeScreenPos(i.vertexCS);
+            float2 screenUV = screenPos.xy/i.vertexCS.w;
+            
+            // origin deep for foam
+            float3 objectPositionWS = ComputeWorldSpacePosition( screenUV, SampleSceneDepth(screenUV), UNITY_MATRIX_I_VP);
+            float waterDeep = abs(positionWS.y - objectPositionWS.y)/max(_DeepScale, 1);
+            waterDeep = pow(waterDeep, _DeepPower);
+            float deepFactorOrigin = 1 - exp2(-_DeepCurve * waterDeep);
+
+            float2 refractedScreenUV = screenUV - normalWS.xz * _Refraction*0.05;
+            objectPositionWS = ComputeWorldSpacePosition(refractedScreenUV, SampleSceneDepth(refractedScreenUV), UNITY_MATRIX_I_VP);
+            refractedScreenUV = lerp(screenUV, refractedScreenUV, step(objectPositionWS.y, positionWS.y));
+            objectPositionWS = ComputeWorldSpacePosition(refractedScreenUV, SampleSceneDepth(refractedScreenUV), UNITY_MATRIX_I_VP);
+
+            waterDeep = abs(positionWS.y - objectPositionWS.y)/max(_DeepScale, 1);
+            waterDeep = pow(waterDeep, _DeepPower);
+            float deepFactor = 1 - exp2(-_DeepCurve * waterDeep);
+           
+            baseColor.rgb = lerp(_ShallowColor.rgb, _DeepColor.rgb, deepFactor);
+            alpha = saturate(lerp(_ShallowColor.a, _DeepColor.a, deepFactor));
+
+            
 
             // ------------------------reflection------------------------------
-            float2 reflectionUV = screenUV.xy;
+            float2 reflectionUV = refractedScreenUV.xy;
             objectPositionWS = ComputeWorldSpacePosition(reflectionUV, SampleSceneDepth(reflectionUV), UNITY_MATRIX_I_VP);
             float3 objectPositionAbove = float3(positionWS.x, 2 * positionWS.y - objectPositionWS.y, positionWS.z);
             float4 screenPosReflect = ComputeScreenPos(TransformWorldToHClip(objectPositionAbove));
@@ -215,8 +257,13 @@ Shader "MyShader/OceanShader_01"
             half3 reflectionColor = SAMPLE_TEXTURE2D(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, reflectUV);
 
             // ------------------------refraction------------------------------
-
-
+            half3 opaqueColor = SAMPLE_TEXTURE2D(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, refractedScreenUV);
+            // fresnel
+            half NdotV = dot(normalize(i.normalWSOrigin), viewDir);
+            float fresnel = 1 - NdotV;
+            fresnel = saturate(pow(saturate(fresnel), _FresnelPower) * _FresnelIntensity);
+            reflectionColor *= fresnel;
+            opaqueColor *= (1-fresnel)/2;
             // ------------------------edge foam------------------------------
             float2 noiseUV = i.uv*_NoiseTex_ST.xy;
             float3 flowNoiseUV0 = FlowUV(noiseUV,flowMap.xy,flowTime);
@@ -235,9 +282,10 @@ Shader "MyShader/OceanShader_01"
             half3 diffuse = halfLambert * baseColor.rgb;
             half3 specular = (_SpecIntensity/100) * pow(saturate(NdotH), -_Shininess) * mainLight.color;
 
-            half3 finalColor = specular + diffuse +_FoamColor.rgb * step(deepFactor, _FoamBias/3000)* step(_FoamDensity,foamNoise)*_FoamIntensity;
-            finalColor += reflectionColor/4;
-            return half4(finalColor,alpha);
+            half3 finalColor = specular + diffuse +_FoamColor.rgb * step(deepFactorOrigin, _FoamBias/3000)* step(_FoamDensity,foamNoise)*_FoamIntensity;
+            finalColor += reflectionColor;
+            finalColor = finalColor*alpha + opaqueColor*(1-alpha);
+            return half4(finalColor,1.0);
         }
         
         ENDHLSL
