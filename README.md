@@ -1,6 +1,5 @@
 # WaterRenderingInUnity
-Newcastle University 2021 Computer Game Engineering Dissertation
+Unity URP water rendering demo
 
 Using URP as rendering pipeline.
 
-pause until Oct.
